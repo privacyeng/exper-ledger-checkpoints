@@ -1,0 +1,9 @@
+@prefix ex: <https://experienceexchange.au/ns#> .
+
+<>
+    a ex:LedgerCheckpoint ;
+    ex:checkpointDate "2026-08-18T14:22:23Z" ;
+    ex:entryCount "4" ;
+    ex:chainHead "pfzuyKLfXECi6iBYBdW3RovgCboAtmooZHsF3fQZNqY=" ;
+    ex:checkpointSignerKeyId "checkpoint-key-v1" ;
+    ex:checkpointSignature "h/yde4KI4gv0tIfa7zMzGokRQxuVuSvWdGUYMndE9UzDo2PhwMZLngGHn2WEvz7UStbuPSnzaIM3Aa37D3gQBw==" .
