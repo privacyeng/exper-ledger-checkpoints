@@ -1,21 +1,38 @@
 # exper ledger checkpoints
 
-This repo is an external, publicly-readable witness for the [exper](https://github.com/privacyeng/exper) app's shared token ledger.
+Public, externally-readable witness for the [exper](https://github.com/privacyeng/exper) app's shared token ledger.
 
-## What's in here
+## What's here
 
-`exper`'s shared token ledger (a Solid Pod resource, dual-signed and append-only) is periodically checkpointed by `support/checkpoint_ledger.py`: every entry's public fields are hashed and folded into a hash chain, signed with a dedicated checkpoint-signing keypair, and committed here as `checkpoint-<YYYY-MM-DD>.ttl`, one file per day, chained to the previous day's checkpoint via `ex:previousCheckpoint`. Each run also overwrites `token_ledger_checkpoint_latest.ttl` with the same content, so a fetcher that just wants the current state doesn't need to know today's date — overwriting this one file is safe under branch protection (that setting blocks force-pushes and branch deletion, not ordinary forward commits), so every previous version of "latest" stays fully recoverable from git history regardless. The dated files are never modified or deleted after being committed — this repo's `main` branch is protected (no force-push, no history rewrite, enforced even for admins) specifically so this history is an independent, tamper-evident record of the ledger's state over time, separate from anything the ledger's own Pod-hosting service account controls.
+`checkpoint_ledger.py` (in the exper repo) periodically hashes and chains every ledger entry's public fields, signs the result, and commits it here as `checkpoint-<YYYY-MM-DD>.ttl` — one per day, linked to the previous via `ex:previousCheckpoint`. `token_ledger_checkpoint_latest.ttl` holds the same content under a fixed name, overwritten each run.
 
-The exper app itself treats `token_ledger_checkpoint_latest.ttl` **in this repo** as the authoritative source for its in-app verification badge — it only falls back to the ledger service account's own Pod copy if this repo is briefly unreachable. That's deliberate: the ledger service account can read and write both the ledger and its own Pod-hosted checkpoint files, so on its own that copy can't prove anything wasn't forged. This repo's branch protection is what actually makes a checkpoint tamper-evident.
+`main` is branch-protected — no force-push, no deletion, enforced even for admins — so a committed checkpoint can't be silently rewritten, including by whoever controls the ledger's Pod and signing key. The exper app treats `token_ledger_checkpoint_latest.ttl` **in this repo**, not the Pod's own copy, as authoritative (falling back to the Pod only if this repo is briefly unreachable): the ledger service account can read and write both the ledger and its own checkpoint files, so its copy alone proves nothing.
 
-## Why a public repo
+## Why public
 
-Anyone can clone this repo and independently verify the ledger's integrity without needing any Solid Pod credentials — `curl`ing a raw checkpoint file here, or cloning the full history, works with zero authentication. That's the point: a witness only a small group can read isn't really independent of the thing it's witnessing.
+`curl` a checkpoint or clone the full history with no credentials. A witness only a few people can read isn't independent.
 
-## Verifying
+## Verifying a receipt
 
-See `support/verify_ledger_checkpoints.py` and `support/verify_receipt.py` in the [exper repo](https://github.com/privacyeng/exper) for tooling that checks a checkpoint's signature and, given a downloaded payment receipt, its Merkle inclusion proof against a checkpoint published here.
+Get `verify_receipt.py` from this repo and a `receipt.json` from the exper app (**My Tokens** → a verified transaction → **Download Receipt** → JSON):
+
+```bash
+pip install cryptography
+python3 verify_receipt.py --receipt receipt.json
+```
+
+Checks, entirely offline, using only the receipt and this script's pinned checkpoint public key:
+
+1. The receipt's transaction hash matches its own fields.
+2. Its Merkle proof reconstructs the checkpoint's `merkleRoot`.
+3. The checkpoint's signature is genuine.
+
+No exper app, Pod, or network access required.
+
+## Verifying checkpoint history
+
+`support/verify_ledger_checkpoints.py` in the exper repo walks the full checkpoint chain and confirms it end to end — needs Solid credentials, so it isn't published here.
 
 ## Format
 
-Each `checkpoint-<date>.ttl` is a small Turtle document — see `lib/models/ledger_checkpoint.dart` and `lib/constants/vocab.dart`'s "Ledger checkpoints" section in the exper repo for the exact vocabulary.
+Each `checkpoint-<date>.ttl` is a small Turtle document — see `lib/models/ledger_checkpoint.dart` / `vocab.dart` in exper for the vocabulary.
